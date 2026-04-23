@@ -54,8 +54,9 @@ int main() {
     scanf("%d", &ping_reqs);
     for(int i = 1; i <= ping_reqs; i++) {
         printf("Pinging Server Attempt %d\n", i);
-        sendto(sock_fd, buffer_send, sizeof(buffer_send), 0, (struct sockaddr*)&server_addr, server_addr_sock_len);
-        int bytes_read = recvfrom(sock_fd, buffer_recv, sizeof(buffer_recv), 0, (struct sockaddr*)&server_addr, &server_addr_sock_len);
+        int send_bytes = sendto(sock_fd, buffer_send, sizeof(buffer_send), 0, (struct sockaddr*)&server_addr, server_addr_sock_len);
+        printf("Send %d bytes\n", send_bytes);
+        int bytes_read = recvfrom(sock_fd, buffer_recv, sizeof(buffer_recv), 0, NULL, NULL);
         if(bytes_read == -1) {
             if(errno == EAGAIN || errno == EWOULDBLOCK) {
                 printf("Packet Timeout!\n");
@@ -69,6 +70,7 @@ int main() {
         }
         printf("Received Pong\n");
         success++;
+        sleep(1);
     }
 
     printf("Packets %d/%d received\n", success, ping_reqs);

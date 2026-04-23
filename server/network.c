@@ -11,6 +11,7 @@ volatile int fd_closed = -1;
 void handle_close(int sigint) {
     if(fd_closed == -1) return;
     close(fd_closed);
+    exit(1);
 }
 
 
