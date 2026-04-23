@@ -2,7 +2,7 @@
 #define DEFINES_H
 
 #define SERVER_IP 0x68D6BD19
-#define SERVER_PORT 1194
+#define SERVER_PORT 443
 #define CLIENT_IP
 #define CLIENT_PORT 0
 

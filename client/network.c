@@ -70,7 +70,7 @@ int main() {
         }
         printf("Received Pong\n");
         success++;
-        sleep(1);
+        sleep(3);
     }
 
     printf("Packets %d/%d received\n", success, ping_reqs);
