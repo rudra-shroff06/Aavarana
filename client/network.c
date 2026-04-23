@@ -42,7 +42,7 @@ int main() {
     socklen_t server_addr_sock_len = sizeof(server_addr);
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(SERVER_PORT);
-    server_addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    server_addr.sin_addr.s_addr = htonl(SERVER_IP);
 
 
     // BODY
