@@ -84,6 +84,30 @@ i32 client_perform_handshake(ClientConfig* config, AuthResponse* resp_out) {
     return 0;
 }
 
+// 1. ADD THIS FUNCTION
+void configure_client_routing(const char* server_ip, u32 virtual_ip) {
+    char cmd[512];
+    printf("[Client] Configuring Full Tunnel Routing...\n");
+
+    // Step 1: Find the current default gateway and force the Server IP to go through it
+    // (This bash one-liner automatically finds your normal Wi-Fi gateway)
+    snprintf(cmd, sizeof(cmd), 
+             "sudo ip route add %s $(ip route show default | awk '/default/ {print \"via \"$3\" dev \"$5}')", 
+             server_ip);
+    system(cmd);
+
+    // Step 2: Override the rest of the internet to go into tun0
+    // 10.0.0.1 is the Server's inside VPN IP
+    system("sudo ip route add 0.0.0.0/1 via 10.0.0.1 dev tun0");
+    system("sudo ip route add 128.0.0.0/1 via 10.0.0.1 dev tun0");
+
+    // Add Google DNS just to be safe so your browser can resolve websites
+    system("sudo resolvectl dns tun0 8.8.8.8 8.8.4.4"); 
+    
+    printf("[Client] All internet traffic is now routed through the VPN!\n");
+}
+
+
 // ----------------------------------------------------------------------------
 // 3. client_run_tunnel: The blocking UDP Data Plane with Self-Healing
 // ----------------------------------------------------------------------------
@@ -101,6 +125,9 @@ void client_run_tunnel(ClientConfig* config) {
 
         // Step 2: Configure the OS routing and MTU (From your tun.c)
         configure_tun_ip(config->tconf.dev, current_config.virtual_ip);
+
+        // ADD THIS LINE:
+        configure_client_routing(config->server_ip, current_config.virtual_ip);
 
         // Step 3: Initialize Crypto Context
         CipherContext ctx;
