@@ -24,7 +24,7 @@ static EventCallBack unix_cb = {.on_read = handle_admin_cmd, .on_write = NULL, .
 
 
 
-void net_init_sokcets(NetworkContext* ctx) {
+void net_init_sockets(NetworkContext* ctx) {
     ctx->epoll_fd = epoll_create1(0);
     if(ctx->epoll_fd == -1) {
         perror("[ERROR]");
