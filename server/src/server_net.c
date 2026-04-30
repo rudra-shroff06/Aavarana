@@ -171,6 +171,20 @@ void handle_udp_tunnel(i32 fd) {
 
     crypto_process_stream(&ctx, buffer, len);
 
+    u32 src_virtual_ip;
+    memcpy(&src_virtual_ip, &buffer[12], 4); 
+
+    pthread_mutex_lock(&global_rt.lock);
+    for(int i = 0; i < MAX_CLIENTS; i++) {
+        // If we find the user who sent this packet...
+        if(global_rt.entries[i].is_active && global_rt.entries[i].virtual_ip == src_virtual_ip) {
+            // Overwrite the old TCP port with the REAL UDP port they are using!
+            global_rt.entries[i].real_addr = client_addr; 
+            break;
+        }
+    }
+    pthread_mutex_unlock(&global_rt.lock);
+
     write(global_tun_fd, buffer, len);
 
 }
