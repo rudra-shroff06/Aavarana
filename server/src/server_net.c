@@ -32,11 +32,11 @@ void net_init_sockets(NetworkContext* ctx) {
     }
 
     ctx->udp_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    struct sockaddr_in udp_addr = {.sin_family = AF_INET, .sin_port = htons(1194), .sin_addr = INADDR_ANY};
+    struct sockaddr_in udp_addr = {.sin_family = AF_INET, .sin_port = htons(1194), .sin_addr = {INADDR_ANY}};
     bind(ctx->udp_fd, (struct sockaddr*)&udp_addr, sizeof(udp_addr));
 
     ctx->tcp_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    struct sockaddr_in tcp_addr = {.sin_family = AF_INET, .sin_port = htons(8080), .sin_addr = INADDR_ANY};
+    struct sockaddr_in tcp_addr = {.sin_family = AF_INET, .sin_port = htons(8080), .sin_addr = {INADDR_ANY}};
     bind(ctx->tcp_fd, (struct sockaddr*)&tcp_addr, sizeof(tcp_addr));
     listen(ctx->tcp_fd, TCP_LISTEN_BUFFER_SIZE);
 

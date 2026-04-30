@@ -6,6 +6,7 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <sys/wait.h>
 
 static_assert(sizeof(char) * 8 == 8, "[Error]: char must be 8 bits!");
 static_assert(sizeof(short) * 8 == 16, "[Error]: short must be 16 bits!");

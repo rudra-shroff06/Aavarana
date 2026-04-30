@@ -18,9 +18,9 @@ void client_bootstrap(i32 argc, i8* argv[], ClientConfig* config) {
     }
 
     // Safely copy terminal arguments into the config struct
-    strncpy(config->server_ip, argv[1], sizeof(config->server_ip) - 1);
-    strncpy(config->username, argv[2], sizeof(config->username) - 1);
-    strncpy(config->password, argv[3], sizeof(config->password) - 1);
+    strncpy((i8*)config->server_ip, argv[1], sizeof(config->server_ip) - 1);
+    strncpy((i8*)config->username, argv[2], sizeof(config->username) - 1);
+    strncpy((i8*)config->password, argv[3], sizeof(config->password) - 1);
 
     // Ensure null termination
     config->server_ip[sizeof(config->server_ip) - 1] = '\0';
@@ -29,7 +29,7 @@ void client_bootstrap(i32 argc, i8* argv[], ClientConfig* config) {
 
     // Initialize and allocate the TUN interface using your tun.c logic
     init_tunconfig(&config->tconf);
-    strcpy(config->tconf.dev, "tun0"); // Default name
+    strcpy((i8*)config->tconf.dev, "tun0"); // Default name
     
     config->tconf.fd = tun_alloc(config->tconf.dev);
     if (config->tconf.fd < 0) {

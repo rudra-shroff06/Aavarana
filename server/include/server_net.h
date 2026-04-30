@@ -27,5 +27,6 @@ void net_epoll_loop(NetworkContext* ctx);
 void handle_tcp_auth(i32 fd);
 void handle_udp_tunnel(i32 fd);
 void handle_admin_cmd(i32 fd);
+void handle_tun_read(i32 fd);
 
 #endif // SERVER_NET_H
