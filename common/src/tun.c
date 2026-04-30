@@ -60,5 +60,8 @@ void configure_tun_ip(i8* dev_name, u32 virtual_ip) {
     snprintf(cmd, sizeof(cmd), "sudo ip link set dev %s mtu 1400", dev_name);
     system(cmd);
 
+    // Force a smaller MTU to allow room for VPN headers
+    system("ifconfig tun0 mtu 1400 up");
+
     printf("[DEBUG] Configured TUN Interface '%s' with IP: %s\n", dev_name, ip_str);
 }
