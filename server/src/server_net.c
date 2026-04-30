@@ -169,7 +169,8 @@ void handle_udp_tunnel(i32 fd) {
 
     pthread_mutex_lock(&global_ks.lock);
     CipherContext ctx;
-    crypto_init(&ctx, global_ks.current_session_key, global_ks.key_len);
+    u8 debug_key[16] = "SUPERSECRETKEY12";
+    crypto_init(&ctx, debug_key, 16);
     pthread_mutex_unlock(&global_ks.lock);
 
     printf("[DEBUG] Raw First Byte: 0x%02X\n", buffer[0]);
