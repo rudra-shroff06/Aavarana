@@ -113,28 +113,18 @@ void configure_client_routing(const char* server_ip, u32 virtual_ip) {
 // ----------------------------------------------------------------------------
 void client_run_tunnel(ClientConfig* config) {
     AuthResponse current_config;
+    u8 debug_key[16] = "SUPERSECRETKEY12";
 
-    // OUTER LOOP: Self-Healing & Re-Authentication Layer
     while (1) {
-        // Step 1: Execute the Handshake
         if (!client_perform_handshake(config, &current_config)) {
-            printf("[Client] Handshake failed. Retrying in 5 seconds...\n");
+            printf("[Client] Handshake failed. Retrying...\n");
             sleep(5);
             continue;
         }
 
-        // Step 2: Configure the OS routing and MTU (From your tun.c)
         configure_tun_ip(config->tconf.dev, current_config.virtual_ip);
-
-        // ADD THIS LINE:
         configure_client_routing(config->server_ip, current_config.virtual_ip);
 
-        // Step 3: Initialize Crypto Context
-        CipherContext ctx;
-        u8 debug_key[16] = "SUPERSECRETKEY12";
-        crypto_init(&ctx, debug_key, 16);
-
-        // Step 4: Open the UDP Socket (The Data Tunnel)
         i32 udp_fd = socket(AF_INET, SOCK_DGRAM, 0);
         struct sockaddr_in server_udp_addr;
         memset(&server_udp_addr, 0, sizeof(server_udp_addr));
@@ -142,45 +132,41 @@ void client_run_tunnel(ClientConfig* config) {
         server_udp_addr.sin_port = htons(1194);
         inet_pton(AF_INET, config->server_ip, &server_udp_addr.sin_addr);
 
-        // Step 5: Setup poll() to watch TUN and UDP
         struct pollfd fds[2];
-        fds[0].fd = config->tconf.fd;  // TUN (Traffic from OS -> VPN)
+        fds[0].fd = config->tconf.fd;
         fds[0].events = POLLIN;
-        fds[1].fd = udp_fd;            // UDP (Traffic from VPN -> OS)
+        fds[1].fd = udp_fd;
         fds[1].events = POLLIN;
 
-        printf("[Client] UDP Data Plane Online. Routing packets...\n");
+        printf("[Client] Data Plane Online. Syncing with %s...\n", debug_key);
 
-        // INNER LOOP: High-speed packet routing
         while (1) {
-            // POLL WITH 15-SECOND TIMEOUT (Key Rotation Trigger)
             i32 ret = poll(fds, 2, 15000); 
-
-            if (ret == 0) {
-                printf("[Client] UDP Timeout! Triggering Re-Auth for Key Rotation...\n");
-                close(udp_fd);
-                break; // Break inner loop, jump to outer loop to fetch new key
-            }
+            if (ret == 0) { break; } // Timeout -> Re-auth
 
             u8 buffer[2048];
+            CipherContext ctx; // Move this here!
 
-            // Event A: OS sent a packet into TUN (Outbound to Internet)
             if (fds[0].revents & POLLIN) {
                 i32 len = tun_read(config->tconf.fd, (i8*)buffer, sizeof(buffer));
                 if (len > 0) {
+                    // --- RE-INIT PER PACKET FOR STABILITY ---
+                    crypto_init(&ctx, debug_key, 16); 
                     crypto_process_stream(&ctx, buffer, len);
                     sendto(udp_fd, buffer, len, 0, (struct sockaddr*)&server_udp_addr, sizeof(server_udp_addr));
                 }
             }
 
-            // Event B: Server sent a packet via UDP (Inbound from Internet)
             if (fds[1].revents & POLLIN) {
                 i32 len = recvfrom(udp_fd, buffer, sizeof(buffer), 0, NULL, NULL);
                 if (len > 0) {
+                    // --- RE-INIT PER PACKET FOR STABILITY ---
+                    crypto_init(&ctx, debug_key, 16); 
                     crypto_process_stream(&ctx, buffer, len);
                     tun_write(config->tconf.fd, (i8*)buffer, len);
                 }
             }
         }
+        close(udp_fd);
     }
 }

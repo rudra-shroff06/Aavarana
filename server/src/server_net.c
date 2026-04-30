@@ -163,40 +163,34 @@ void handle_udp_tunnel(i32 fd) {
     u8 buffer[2048];
 
     i32 len = recvfrom(fd, buffer, sizeof(buffer), 0, (struct sockaddr*)&client_addr, &addr_len);
-    if(len <= 20) return;
+    if(len <= 20) return; 
 
-    printf("\n[DEBUG] UDP Packet Received! Size: %d bytes from Port: %d\n", len, ntohs(client_addr.sin_port));
-
-    pthread_mutex_lock(&global_ks.lock);
-    CipherContext ctx;
+    // --- 1. DECRYPTION (Using Static Key for Demo Stability) ---
     u8 debug_key[16] = "SUPERSECRETKEY12";
+    CipherContext ctx;
     crypto_init(&ctx, debug_key, 16);
-    pthread_mutex_unlock(&global_ks.lock);
-
-    printf("[DEBUG] Raw First Byte: 0x%02X\n", buffer[0]);
     crypto_process_stream(&ctx, buffer, len);
 
+    // --- 2. AGNOSTIC IP LEARNING ---
     u32 src_virtual_ip;
-    memcpy(&src_virtual_ip, &buffer[12], 4);
-
-    struct in_addr dec_ip = { .s_addr = src_virtual_ip };
-    printf("[DEBUG] Decrypted Source IP: %s\n", inet_ntoa(dec_ip));
+    memcpy(&src_virtual_ip, &buffer[12], 4); // Extract whatever IP the Client used
 
     pthread_mutex_lock(&global_rt.lock);
     for(int i = 0; i < MAX_CLIENTS; i++) {
-        // If we find the user who sent this packet...
-        if(global_rt.entries[i].is_active && global_rt.entries[i].virtual_ip == src_virtual_ip) {
-            // Overwrite the old TCP port with the REAL UDP port they are using!
-            global_rt.entries[i].real_addr = client_addr;
-
-            printf("[DEBUG] Dynamic Port Learnt! Updated to %d\n", ntohs(client_addr.sin_port));
+        if(global_rt.entries[i].is_active) { 
+            // We overwrite the expected IP with the REAL IP found in the packet
+            global_rt.entries[i].virtual_ip = src_virtual_ip;
+            global_rt.entries[i].real_addr = client_addr; 
+            
+            printf("[SUCCESS] Agnostic Link: Learned IP %s and Port %d\n", 
+                   inet_ntoa(*(struct in_addr*)&src_virtual_ip), ntohs(client_addr.sin_port));
             break;
         }
     }
     pthread_mutex_unlock(&global_rt.lock);
 
+    // --- 3. FORWARD TO TUNNEL ---
     write(global_tun_fd, buffer, len);
-
 }
 
 
