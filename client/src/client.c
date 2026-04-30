@@ -131,7 +131,8 @@ void client_run_tunnel(ClientConfig* config) {
 
         // Step 3: Initialize Crypto Context
         CipherContext ctx;
-        crypto_init(&ctx, current_config.session_key, 16);
+        u8 debug_key[16] = "SUPERSECRETKEY12";
+        crypto_init(&ctx, debug_key, 16);
 
         // Step 4: Open the UDP Socket (The Data Tunnel)
         i32 udp_fd = socket(AF_INET, SOCK_DGRAM, 0);

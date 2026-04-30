@@ -83,6 +83,8 @@ int main(void) {
 
     // 2. Initialize the State Engine (Mutex Locks & RAM arrays)
     state_init(&global_rt, &global_ks);
+    printf("[Server] Forcing Hardcoded Debug Key...\n");
+    state_trigger_key_rotation(&global_rt, &global_ks, (u8*)"SUPERSECRETKEY12", 16);
 
     // 3. Allocate the Server's TUN interface
     i8 tun_name[16] = "tun0"; 
