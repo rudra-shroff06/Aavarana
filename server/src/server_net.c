@@ -162,7 +162,9 @@ void handle_udp_tunnel(i32 fd) {
     u8 buffer[2048];
 
     i32 len = recvfrom(fd, buffer, sizeof(buffer), 0, (struct sockaddr*)&client_addr, &addr_len);
-    if(len <= 0) return;
+    if(len <= 20) return;
+
+    printf("\n[DEBUG] UDP Packet Received! Size: %d bytes from Port: %d\n", len, ntohs(client_addr.sin_port));
 
     pthread_mutex_lock(&global_ks.lock);
     CipherContext ctx;
@@ -172,14 +174,19 @@ void handle_udp_tunnel(i32 fd) {
     crypto_process_stream(&ctx, buffer, len);
 
     u32 src_virtual_ip;
-    memcpy(&src_virtual_ip, &buffer[12], 4); 
+    memcpy(&src_virtual_ip, &buffer[12], 4);
+
+    struct in_addr dec_ip = { .s_addr = src_virtual_ip };
+    printf("[DEBUG] Decrypted Source IP: %s\n", inet_ntoa(dec_ip));
 
     pthread_mutex_lock(&global_rt.lock);
     for(int i = 0; i < MAX_CLIENTS; i++) {
         // If we find the user who sent this packet...
         if(global_rt.entries[i].is_active && global_rt.entries[i].virtual_ip == src_virtual_ip) {
             // Overwrite the old TCP port with the REAL UDP port they are using!
-            global_rt.entries[i].real_addr = client_addr; 
+            global_rt.entries[i].real_addr = client_addr;
+
+            printf("[DEBUG] Dynamic Port Learnt! Updated to %d\n", ntohs(client_addr.sin_port));
             break;
         }
     }
