@@ -172,6 +172,7 @@ void handle_udp_tunnel(i32 fd) {
     crypto_init(&ctx, global_ks.current_session_key, global_ks.key_len);
     pthread_mutex_unlock(&global_ks.lock);
 
+    printf("[DEBUG] Raw First Byte: 0x%02X\n", buffer[0]);
     crypto_process_stream(&ctx, buffer, len);
 
     u32 src_virtual_ip;
