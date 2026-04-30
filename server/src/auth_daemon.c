@@ -27,7 +27,7 @@ pid_t auth_spawn_worker(i32 pipe_down[2], i32 pipe_up[2]) {
 
 
 u8 auth_verify_credentials(const i8* username, const i8* password) {
-    FILE* f = fopen("server/data/users.txt", "r");
+    FILE* f = fopen("./server/data/users.txt", "r");
     if(!f) {
         return 0;
     }
