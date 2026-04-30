@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -Wall -Wextra -pthread -g
 
 # Include Directories (This is why <state.h> works)
-INCLUDES = -Icommon/include -Iserver/include -Iclient/include
+INCLUDES = -Icommon/include -Iserver/include -Iclient/include -Iadmin/include
 
 # Final Binaries
 SERVER_BIN = aavarana_server

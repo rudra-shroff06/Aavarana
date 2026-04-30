@@ -4,6 +4,7 @@
 #include <sys/types.h>
 #include <string.h>
 #include <fcntl.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 static_assert(sizeof(char) * 8 == 8, "[Error]: char must be 8 bits!");
