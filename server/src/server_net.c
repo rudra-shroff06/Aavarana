@@ -245,4 +245,6 @@ void handle_tun_read(i32 tun_fd) {
     CipherContext ctx;
     crypto_init(&ctx, local_session_key, key_len);
     crypto_process_stream(&ctx, buffer, len);
+
+    sendto(global_udp_fd, buffer, len, 0, (struct sockaddr*)&client_udp_addr, sizeof(client_udp_addr));
 }
