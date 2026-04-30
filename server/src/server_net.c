@@ -6,6 +6,7 @@
 #include <sys/un.h>
 #include <netinet/ip.h>
 #include <auth_daemon.h>
+#include <arpa/inet.h>
 #include <state.h>
 #include <crypto.h>
 #define MAX_EVENTS 64
