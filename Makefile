@@ -13,7 +13,7 @@ ADMIN_BIN  = aavarana_admin
 COMMON_SRC = common/src/tun.c common/src/crypto.c
 SERVER_SRC = server/src/server_main.c server/src/server_net.c server/src/auth_daemon.c server/src/state.c
 CLIENT_SRC = client/src/client_main.c client/src/client.c
-ADMIN_SRC  = admin/src/admin_main.c admin/src/admin.c
+ADMIN_SRC  = admin/src/admin_main.c
 
 # Object Files (Stored in a build folder)
 COMMON_OBJ = $(COMMON_SRC:%.c=build/%.o)

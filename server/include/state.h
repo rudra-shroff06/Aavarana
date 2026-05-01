@@ -10,6 +10,7 @@ typedef struct RouteEntry {
     u32 virtual_ip;
     struct sockaddr_in real_addr;
     u8 is_active;
+    i8 username[32];
 } RouteEntry;
 
 typedef struct RoutingTable {
@@ -25,7 +26,7 @@ typedef struct KeyStore {
 
 
 void state_init(RoutingTable* rt, KeyStore* ks);
-i32 state_add_client(RoutingTable* rt, KeyStore* ks, u32 virtual_ip, struct sockaddr_in* real_addr, u8* initial_key_out);
+i32 state_add_client(RoutingTable* rt, KeyStore* ks, u32 virtual_ip, struct sockaddr_in* real_addr, u8* initial_key_out, const i8* username);
 void state_remove_client(RoutingTable* rt, u32 virtual_ip);
 void state_trigger_key_rotation(RoutingTable* rt, KeyStore* ks, u8* new_key, u32 new_len);
 

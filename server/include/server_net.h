@@ -16,8 +16,8 @@ typedef struct EventCallBack {
 } EventCallBack;
 
 typedef struct __attribute__((packed)) {
-    u8 opcode;       // 0x01 for Kick, 0x02 for Rotate Keys
-    u32 target_ip;   // The Virtual IP to kick (Network Byte Order)
+    u8 opcode;
+    u32 target_ip; 
 } AdminPayload;
 
 void net_init_sockets(NetworkContext* ctx);
@@ -26,7 +26,7 @@ void net_epoll_loop(NetworkContext* ctx);
 
 void handle_tcp_auth(i32 fd);
 void handle_udp_tunnel(i32 fd);
-void handle_admin_cmd(i32 fd);
+void* handle_admin_request(void* arg);
 void handle_tun_read(i32 fd);
 
 #endif // SERVER_NET_H

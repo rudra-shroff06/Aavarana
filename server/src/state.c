@@ -10,7 +10,7 @@ void state_init(RoutingTable* rt, KeyStore* ks) {
     ks->key_len = 0;
 }
 
-i32 state_add_client(RoutingTable* rt, KeyStore* ks, u32 virtual_ip, struct sockaddr_in* real_addr, u8* initial_key_out) {
+i32 state_add_client(RoutingTable* rt, KeyStore* ks, u32 virtual_ip, struct sockaddr_in* real_addr, u8* initial_key_out, const i8* username) {
     int assigned_index = -1;
     pthread_mutex_lock(&rt->lock);
     pthread_mutex_lock(&ks->lock);
@@ -19,7 +19,8 @@ i32 state_add_client(RoutingTable* rt, KeyStore* ks, u32 virtual_ip, struct sock
             rt->entries[i].virtual_ip = virtual_ip;
             rt->entries[i].real_addr = *real_addr;
             rt->entries[i].is_active = 1;
-
+            strncpy(rt->entries[i].username, username, sizeof(rt->entries[i].username) - 1);
+            rt->entries[i].username[sizeof(rt->entries[i].username) - 1] = '\0';
             assigned_index = i;
             break;
         }

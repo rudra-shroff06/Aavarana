@@ -1,56 +1,43 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
-#include <arpa/inet.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 
-// Include your admin header which should contain the AdminPayload struct
-// and the function prototypes (admin_connect_socket, etc.)
-#include <admin.h>
+#define UNIX_SOCK_PATH "/tmp/aavarana_admin.sock"
 
-int main(int argc, char *argv[]) {
-    if (argc < 2) {
-        printf("Aavarana Control Plane CLI\n");
-        printf("Usage:\n");
-        printf("  %s rotate\n", argv[0]);
-        printf("  %s kick <IP>\n", argv[0]);
-        return 1;
+int main() {
+    int sock;
+    struct sockaddr_un addr;
+    char buffer[4096];
+    int bytes_read;
+
+    // 1. Create UNIX Socket
+    if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
+        perror("Socket error");
+        exit(1);
     }
 
-    AdminPayload payload;
-    memset(&payload, 0, sizeof(AdminPayload));
+    memset(&addr, 0, sizeof(addr));
+    addr.sun_family = AF_UNIX;
+    strncpy(addr.sun_path, UNIX_SOCK_PATH, sizeof(addr.sun_path)-1);
 
-    // 1. Parse command line arguments
-    if (strcmp(argv[1], "rotate") == 0) {
-        payload.opcode = CMD_ROTATE_KEYS; // 0x02
-        printf("[Admin CLI] Initiating Global Key Rotation...\n");
-    } 
-    else if (strcmp(argv[1], "kick") == 0 && argc == 3) {
-        payload.opcode = CMD_KICK_USER;   // 0x01
-        
-        // Convert the string IP (e.g., "10.0.0.2") directly into Network Byte Order for the struct
-        if (inet_pton(AF_INET, argv[2], &payload.target_ip) != 1) {
-            printf("[Admin CLI] Error: Invalid IP address format.\n");
-            return 1;
-        }
-        printf("[Admin CLI] Initiating Kick for IP: %s\n", argv[2]);
-    } 
-    else {
-        printf("[Admin CLI] Invalid command.\n");
-        return 1;
+    // 2. Connect to the Server
+    if (connect(sock, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
+        fprintf(stderr, "[ERROR] Is the VPN server running? (Socket not found)\n");
+        close(sock);
+        exit(1);
     }
 
-    // 2. Execute the Unix Domain Socket flow
-    int fd = admin_connect_socket();
-    if (fd < 0) {
-        // admin_connect_socket should already print an error, but just in case:
-        printf("[Admin CLI] Fatal: Could not connect to the Aavarana Server daemon.\n");
-        return 1;
+    // 3. Read the Table Dump
+    // The server thread starts sending data immediately after accept()
+    printf("\033[1;32m--- Aavarana VPN: Live Session Table ---\033[0m\n");
+    while ((bytes_read = read(sock, buffer, sizeof(buffer) - 1)) > 0) {
+        buffer[bytes_read] = '\0';
+        printf("%s", buffer);
     }
+    printf("\033[1;32m----------------------------------------\033[0m\n");
 
-    admin_dispatch_command(fd, &payload);
-    admin_await_response(fd);
-    
-    close(fd);
+    close(sock);
     return 0;
 }

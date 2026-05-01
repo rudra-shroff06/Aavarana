@@ -21,7 +21,6 @@ extern i32 global_udp_fd;
 
 static EventCallBack tcp_cb = {.on_read = handle_tcp_auth, .on_write = NULL, .on_error = NULL};
 static EventCallBack udp_cb = {.on_read = handle_udp_tunnel, .on_write = NULL, .on_error = NULL};
-static EventCallBack unix_cb = {.on_read = handle_admin_cmd, .on_write = NULL, .on_error = NULL};
 
 
 
@@ -82,7 +81,19 @@ void net_epoll_loop(NetworkContext* ctx) {
                     udp_cb.on_read(current_fd);
                 }
                 else if(current_fd == ctx->unix_fd) {
-                    unix_cb.on_read(current_fd);
+                    if (events[i].data.fd == ctx->unix_fd) {
+                        int client_fd = accept(ctx->unix_fd, NULL, NULL);
+                        if (client_fd > 0) {
+                            printf("[Admin] Request detected. Spawning worker thread...\n");
+                            
+                            pthread_t tid;
+                            int* fd_ptr = malloc(sizeof(int));
+                            *fd_ptr = client_fd;
+                            
+                            pthread_create(&tid, NULL, handle_admin_request, fd_ptr);
+                            pthread_detach(tid);
+                        }
+                    }
                 }
                 else if(current_fd == global_tun_fd) {
                     handle_tun_read(current_fd);
@@ -142,15 +153,36 @@ void handle_tcp_auth(i32 fd) {
 
         if(resp.status == 1) {
             u8 initial_key[16];
+            u32 final_vip = 0;
 
-            state_add_client(&global_rt, &global_ks, resp.virtual_ip, &client_addr, initial_key);
+            // --- STICKY IP CHECK ---
+            pthread_mutex_lock(&global_rt.lock);
+            for(int i = 0; i < MAX_CLIENTS; i++) {
+                // Check if slot is active AND belongs to the reconnecting user
+                if(global_rt.entries[i].is_active && strcmp(global_rt.entries[i].username, req.username) == 0) {
+                    final_vip = global_rt.entries[i].virtual_ip;
+                    printf("[TCP] Sticky IP: %s reconnected. Reusing VIP: %u\n", req.username, ntohl(final_vip));
+                    break;
+                }
+            }
+            pthread_mutex_unlock(&global_rt.lock);
+
+            // If we didn't find an existing session, use the new lease from the child
+            if (final_vip == 0) {
+                final_vip = resp.virtual_ip;
+                printf("[TCP] New Client authenticated. Assigned IP: %u\n", ntohl(final_vip));
+            }
+
+            // Update the response so the client knows its true VIP
+            resp.virtual_ip = final_vip;
+
+            // Add or update the client state
+            state_add_client(&global_rt, &global_ks, final_vip, &client_addr, initial_key, req.username);
             memcpy(resp.session_key, initial_key, 16);
-            printf("[TCP] Client authenticate. Assigned IP: %u\n", ntohl(resp.virtual_ip));
         }
         else {
             printf("[TCP] Authentication failed for user: %s\n", req.username);
         }
-
         write(client_fd, &resp, sizeof(AuthResponse));
         close(client_fd);
     }
@@ -165,68 +197,58 @@ void handle_udp_tunnel(i32 fd) {
     i32 len = recvfrom(fd, buffer, sizeof(buffer), 0, (struct sockaddr*)&client_addr, &addr_len);
     if(len <= 20) return; 
 
-    // --- 1. DECRYPTION (Using Static Key for Demo Stability) ---
     u8 debug_key[16] = "SUPERSECRETKEY12";
     CipherContext ctx;
     crypto_init(&ctx, debug_key, 16);
     crypto_process_stream(&ctx, buffer, len);
 
-    // --- 2. AGNOSTIC IP LEARNING ---
+
     u32 src_virtual_ip;
-    memcpy(&src_virtual_ip, &buffer[12], 4); // Extract whatever IP the Client used
+    memcpy(&src_virtual_ip, &buffer[12], 4);
 
     pthread_mutex_lock(&global_rt.lock);
     for(int i = 0; i < MAX_CLIENTS; i++) {
-        if(global_rt.entries[i].is_active) { 
-            // We overwrite the expected IP with the REAL IP found in the packet
-            global_rt.entries[i].virtual_ip = src_virtual_ip;
-            global_rt.entries[i].real_addr = client_addr; 
-            
-            printf("[SUCCESS] Agnostic Link: Learned IP %s and Port %d\n", 
-                   inet_ntoa(*(struct in_addr*)&src_virtual_ip), ntohs(client_addr.sin_port));
+        if(global_rt.entries[i].is_active && global_rt.entries[i].virtual_ip == src_virtual_ip) { 
+            if (global_rt.entries[i].real_addr.sin_port != client_addr.sin_port || 
+                global_rt.entries[i].real_addr.sin_addr.s_addr != client_addr.sin_addr.s_addr) {
+                
+                global_rt.entries[i].real_addr = client_addr; 
+                printf("[SUCCESS] Agnostic Link: Updated Endpoint to %s:%d\n", 
+                       inet_ntoa(client_addr.sin_addr), ntohs(client_addr.sin_port));
+            }
             break;
         }
     }
     pthread_mutex_unlock(&global_rt.lock);
 
-    // --- 3. FORWARD TO TUNNEL ---
     write(global_tun_fd, buffer, len);
 }
 
 
-void handle_admin_cmd(i32 fd) {
-    i32 admin_fd = accept(fd, NULL, NULL);
-    if(admin_fd < 0) return;
+void* handle_admin_request(void* arg) {
+    int client_fd = *((int*)arg);
+    free(arg); // Clean up the pointer we allocated
 
-    AdminPayload payload;
-    i32 bytes_read = read(admin_fd, &payload, sizeof(AdminPayload));
+    char response[2048] = "--- Aavarana VPN: Live Session Table ---\n";
+    char entry[256];
 
-    if (bytes_read == sizeof(AdminPayload)) {
-        
-        if (payload.opcode == 0x02) { 
-            // --- COMMAND: ROTATE KEYS ---
-            printf("[Admin] Key rotation command received.\n");
-            u8 new_key[16];
-            for (int i = 0; i < 16; i++) new_key[i] = rand() % 256;
-            
-            state_trigger_key_rotation(&global_rt, &global_ks, new_key, 16);
-            printf("[Admin] Keys rotated successfully.\n");
-        }
-        else if (payload.opcode == 0x01) { 
-            // --- COMMAND: KICK USER ---
-            printf("[Admin] Kick User command received for IP: %u\n", ntohl(payload.target_ip));
-
-            // 1. Wipe them from RAM so they can't route packets anymore
-            state_remove_client(&global_rt, payload.target_ip);
-
-            // 2. THIS IS WHERE IT GOES: Release the IP back to leases.txt!
-            auth_release_lease(payload.target_ip);
-
-            printf("[Admin] User successfully purged from memory and lease released.\n");
+    pthread_mutex_lock(&global_rt.lock);
+    for (int i = 0; i < MAX_CLIENTS; i++) {
+        if (global_rt.entries[i].is_active) {
+            snprintf(entry, sizeof(entry), 
+                     "VIP: 10.0.0.%d | Real: %s | Port: %d\n",
+                     global_rt.entries[i].virtual_ip & 0xFF,
+                     inet_ntoa(global_rt.entries[i].real_addr.sin_addr),
+                     ntohs(global_rt.entries[i].real_addr.sin_port));
+            strcat(response, entry);
         }
     }
-    
-    close(admin_fd);
+    pthread_mutex_unlock(&global_rt.lock);
+
+    strcat(response, "---------------------------------------\n");
+    write(client_fd, response, strlen(response));
+    close(client_fd);
+    return NULL;
 }
 
 
