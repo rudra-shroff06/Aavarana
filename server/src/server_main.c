@@ -81,11 +81,10 @@ void handle_shutdown(int sig) {
 
 
 
-// --- THE MULTITHREADING REQUIREMENT ---
+
 void* auto_key_rotation_thread(void* arg) {
     while(1) {
-        // In a real system, this would generate a new key and update global_ks.
-        // For the demo, it prints every hour to show background concurrency.
+
         sleep(3600); 
         printf("[Thread] Background Security Worker: Keys rotated in memory.\n");
     }
@@ -98,16 +97,16 @@ int main(void) {
 
     state_init(&global_rt, &global_ks);
     
-    // Hardcoded key for Demo Stability
+
     printf("[Server] Forcing Hardcoded Debug Key...\n");
     state_trigger_key_rotation(&global_rt, &global_ks, (u8*)"SUPERSECRETKEY12", 16);
 
-    // --- START THE BACKGROUND THREAD ---
+
     pthread_t tid;
     if(pthread_create(&tid, NULL, auto_key_rotation_thread, NULL) != 0) {
         perror("Failed to create security thread");
     }
-    pthread_detach(tid); // Let it run independently
+    pthread_detach(tid); 
 
     i8 tun_name[16] = "tun0"; 
     global_tun_fd = tun_alloc(tun_name);
@@ -120,8 +119,7 @@ int main(void) {
     printf("[Server] Configuring Gateway Interface...\n");
     configure_tun_ip(tun_name, inet_addr("10.0.0.1"));
 
-    // --- WILDCARD NAT FIX ---
-    // This allows your 172.16.x.x packets to hit the internet!
+
     system("iptables -t nat -F");
     system("iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE");
     system("echo 1 > /proc/sys/net/ipv4/ip_forward");
