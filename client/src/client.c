@@ -106,7 +106,7 @@ void client_run_tunnel(ClientConfig* config) {
     AuthResponse current_config;
     u8 debug_key[16] = "SUPERSECRETKEY12";
 
-    while (1) {
+    while(1) {
         if (!client_perform_handshake(config, &current_config)) {
             printf("[Client] Handshake failed. Retrying...\n");
             sleep(5);
@@ -131,7 +131,7 @@ void client_run_tunnel(ClientConfig* config) {
 
         printf("[Client] Data Plane Online. Syncing with %s...\n", debug_key);
 
-        while (1) {
+        while(1) {
             i32 ret = poll(fds, 2, -1); 
             if (ret == 0) { break; }
 
