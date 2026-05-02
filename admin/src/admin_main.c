@@ -12,7 +12,7 @@ int main() {
     char buffer[4096];
     int bytes_read;
 
-    // 1. Create UNIX Socket
+
     if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
         perror("Socket error");
         exit(1);
@@ -22,15 +22,14 @@ int main() {
     addr.sun_family = AF_UNIX;
     strncpy(addr.sun_path, UNIX_SOCK_PATH, sizeof(addr.sun_path)-1);
 
-    // 2. Connect to the Server
+
     if (connect(sock, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
         fprintf(stderr, "[ERROR] Is the VPN server running? (Socket not found)\n");
         close(sock);
         exit(1);
     }
 
-    // 3. Read the Table Dump
-    // The server thread starts sending data immediately after accept()
+
     printf("\033[1;32m--- Aavarana VPN: Live Session Table ---\033[0m\n");
     while ((bytes_read = read(sock, buffer, sizeof(buffer) - 1)) > 0) {
         buffer[bytes_read] = '\0';
