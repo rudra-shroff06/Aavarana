@@ -88,7 +88,7 @@ u32 auth_allocate_lease() {
     i32 found_free_index = -1;
     
     u32 subnet_base = ntohl(inet_addr("10.0.0.0"));
-    u32 highest_ip_host = subnet_base + 1; // Gateway
+    u32 highest_ip_host = subnet_base + 1;
     i8 line[64];
 
     while (fgets(line, sizeof(line), fp)) {
@@ -101,7 +101,7 @@ u32 auth_allocate_lease() {
             
             if (ip_host > highest_ip_host) highest_ip_host = ip_host;
 
-            // Mark the first available IP we find
+           
             if (status == 0 && found_free_index == -1) {
                 found_free_index = line_count;
             }
@@ -111,54 +111,53 @@ u32 auth_allocate_lease() {
 
     uint32_t assigned_ip_host = 0;
 
-    // 3. Process the IP in RAM
-    if (found_free_index != -1) { // REUSE OLD IP
+
+    if (found_free_index != -1) {
         char ip_str[32];
         sscanf(lines[found_free_index], "%31s", ip_str); 
-        sprintf(lines[found_free_index], "%s 1\n", ip_str); // Update string in RAM
+        sprintf(lines[found_free_index], "%s 1\n", ip_str);
         
         uint32_t net_ip; inet_pton(AF_INET, ip_str, &net_ip);
         assigned_ip_host = ntohl(net_ip);
-    } else { // ALLOCATE BRAND NEW IP
+    } else {
         assigned_ip_host = highest_ip_host + 1;
         if (assigned_ip_host <= subnet_base + 254) {
             char new_ip_str[32];
             uint32_t net_ip = htonl(assigned_ip_host);
             inet_ntop(AF_INET, &net_ip, new_ip_str, 32);
             
-            sprintf(lines[line_count], "%s 1\n", new_ip_str); // Append to RAM array
+            sprintf(lines[line_count], "%s 1\n", new_ip_str);
             line_count++;
         } else {
-            assigned_ip_host = 0; // Subnet full
+            assigned_ip_host = 0;
         }
     }
 
-    // 4. Safely overwrite the file
+    
     if (assigned_ip_host != 0) {
         rewind(fp);
-        ftruncate(fd, 0); // WIPE THE OLD FILE DATA
+        ftruncate(fd, 0);
         for (int i = 0; i < line_count; i++) {
             fputs(lines[i], fp);
         }
         fflush(fp);
     }
 
-    // 5. UNLOCK AND CLOSE
+    
     lock.l_type = F_UNLCK;
     fcntl(fd, F_SETLK, &lock);
-    fclose(fp); // This automatically closes the underlying 'fd' too
+    fclose(fp);
 
     return assigned_ip_host ? htonl(assigned_ip_host) : 0;
 }
 
-// -------------------------------------------------------------
-// 2. RELEASE LEASE (Also with 100% Multiprocess fcntl Locks)
-// -------------------------------------------------------------
+
+
 void auth_release_lease(uint32_t target_ip_net) {
     int fd = open("./server/data/leases.txt", O_RDWR | O_CREAT, 0644);
     if (fd < 0) return;
 
-    // 1. APPLY THE STRICT WRITE LOCK
+    
     struct flock lock = { .l_type = F_WRLCK, .l_whence = SEEK_SET, .l_start = 0, .l_len = 0 };
     fcntl(fd, F_SETLKW, &lock);
 
@@ -171,7 +170,7 @@ void auth_release_lease(uint32_t target_ip_net) {
     char target_ip_str[32];
     inet_ntop(AF_INET, &target_ip_net, target_ip_str, sizeof(target_ip_str));
 
-    // 2. Read entire file into memory
+    
     char lines[256][64];
     int line_count = 0;
     char line[64];
@@ -180,22 +179,22 @@ void auth_release_lease(uint32_t target_ip_net) {
         char ip_str[32]; int status;
         if (sscanf(line, "%31s %d", ip_str, &status) == 2) {
             if (strcmp(ip_str, target_ip_str) == 0) {
-                sprintf(line, "%s 0\n", ip_str); // Modify string in RAM
+                sprintf(line, "%s 0\n", ip_str);
             }
         }
         strcpy(lines[line_count], line);
         line_count++;
     }
 
-    // 3. Safely overwrite the file
+
     rewind(fp);
-    ftruncate(fd, 0); // WIPE OLD FILE
+    ftruncate(fd, 0);
     for (int i = 0; i < line_count; i++) {
         fputs(lines[i], fp);
     }
     fflush(fp);
 
-    // 4. UNLOCK AND CLOSE
+    
     lock.l_type = F_UNLCK;
     fcntl(fd, F_SETLK, &lock);
     fclose(fp);

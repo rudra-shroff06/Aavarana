@@ -155,10 +155,10 @@ void handle_tcp_auth(i32 fd) {
             u8 initial_key[16];
             u32 final_vip = 0;
 
-            // --- STICKY IP CHECK ---
+
             pthread_mutex_lock(&global_rt.lock);
             for(int i = 0; i < MAX_CLIENTS; i++) {
-                // Check if slot is active AND belongs to the reconnecting user
+
                 if(global_rt.entries[i].is_active && strcmp(global_rt.entries[i].username, req.username) == 0) {
                     final_vip = global_rt.entries[i].virtual_ip;
                     printf("[TCP] Sticky IP: %s reconnected. Reusing VIP: %u\n", req.username, ntohl(final_vip));
@@ -167,16 +167,16 @@ void handle_tcp_auth(i32 fd) {
             }
             pthread_mutex_unlock(&global_rt.lock);
 
-            // If we didn't find an existing session, use the new lease from the child
+
             if (final_vip == 0) {
                 final_vip = resp.virtual_ip;
                 printf("[TCP] New Client authenticated. Assigned IP: %u\n", ntohl(final_vip));
             }
 
-            // Update the response so the client knows its true VIP
+
             resp.virtual_ip = final_vip;
 
-            // Add or update the client state
+
             state_add_client(&global_rt, &global_ks, final_vip, &client_addr, initial_key, req.username);
             memcpy(resp.session_key, initial_key, 16);
         }
@@ -227,7 +227,7 @@ void handle_udp_tunnel(i32 fd) {
 
 void* handle_admin_request(void* arg) {
     int client_fd = *((int*)arg);
-    free(arg); // Clean up the pointer we allocated
+    free(arg);
 
     char response[2048] = "--- Aavarana VPN: Live Session Table ---\n";
     char entry[256];

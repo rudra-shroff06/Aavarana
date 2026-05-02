@@ -1,5 +1,6 @@
 #include <tun.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 
 
@@ -42,7 +43,6 @@ ssize_t tun_write(i32 fd, i8* buffer, i32 length) {
     return nwrite;
 }
 
-#include <stdlib.h> // YOU MUST HAVE THIS FOR system()
 
 void configure_tun_ip(i8* dev_name, u32 virtual_ip) {
     i8 ip_str[INET_ADDRSTRLEN];
@@ -50,7 +50,7 @@ void configure_tun_ip(i8* dev_name, u32 virtual_ip) {
 
     i8 cmd[256];
     
-    // BRO, LOOK HERE: sizeof(cmd) is REQUIRED or the compiler will destroy your stack
+
     snprintf(cmd, sizeof(cmd), "sudo ip addr add %s/24 dev %s", ip_str, dev_name);
     system(cmd);
 
@@ -60,7 +60,6 @@ void configure_tun_ip(i8* dev_name, u32 virtual_ip) {
     snprintf(cmd, sizeof(cmd), "sudo ip link set dev %s mtu 1400", dev_name);
     system(cmd);
 
-    // Force a smaller MTU to allow room for VPN headers
     system("ifconfig tun0 mtu 1400 up");
 
     printf("[DEBUG] Configured TUN Interface '%s' with IP: %s\n", dev_name, ip_str);
